@@ -16,6 +16,9 @@ type Proc struct {
 	Cwd   string            `yaml:"cwd"`
 	Shell string            `yaml:"shell"`
 	Env   map[string]string `yaml:"env"`
+	// Requires names processes this one needs, each as a full
+	// <project>:<process> address so nothing has to be resolved by rule.
+	Requires []string `yaml:"requires"`
 }
 
 // Config is one project's declaration. A project is the unit everything is

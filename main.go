@@ -112,30 +112,47 @@ func runStart(argv []string) error {
 		}
 	}
 
-	cfg, err := loadConfig(project)
-	if err != nil {
+	// Resolve the whole graph before creating anything, so a cycle or a bad
+	// address fails while no window exists rather than half way through.
+	r := newResolver()
+	if err := r.resolve(project, args.name, nil); err != nil {
 		return err
 	}
 
-	p, err := cfg.proc(args.name)
-	if err != nil {
-		return err
-	}
-
-	if !sessionExists(cfg.Session) {
-		if err := bootstrapSession(cfg.Session, cfg.Cwd, project); err != nil {
+	for i, s := range r.order {
+		// The process named on the command line is resolved last, and it is
+		// the only one an existing window refuses rather than satisfies.
+		named := i == len(r.order)-1
+		if err := create(s, named, args.force); err != nil {
 			return err
 		}
 	}
 
-	existing, err := findWindows(cfg.Session, args.name)
-	if err != nil {
-		return err
+	return nil
+}
+
+// create makes a window for one step unless something already occupies the
+// name. What that means depends on how the step got here: a requirement is
+// satisfied by whatever is already there, while the process asked for is
+// refused unless -f says to replace it.
+func create(s step, named, force bool) error {
+	var existing []string
+
+	if sessionExists(s.cfg.Session) {
+		ids, err := findWindows(s.cfg.Session, s.name)
+		if err != nil {
+			return err
+		}
+		existing = ids
 	}
+
 	if len(existing) > 0 {
-		if !args.force {
+		if !named {
+			return nil
+		}
+		if !force {
 			return fmt.Errorf("window %q already exists in session %q - use -f to replace it",
-				args.name, cfg.Session)
+				s.name, s.cfg.Session)
 		}
 		for _, id := range existing {
 			if err := killWindow(id); err != nil {
@@ -144,10 +161,27 @@ func runStart(argv []string) error {
 		}
 	}
 
-	if err := newWindow(cfg.Session, args.name, cfg.procCwd(p), p.Shell, p.Env); err != nil {
+	if err := ensureSession(s.cfg); err != nil {
 		return err
 	}
 
-	fmt.Printf("started %s:%s\n", cfg.Session, args.name)
+	p, err := s.cfg.proc(s.name)
+	if err != nil {
+		return err
+	}
+	if err := newWindow(s.cfg.Session, s.name, s.cfg.procCwd(p), p.Shell, p.Env); err != nil {
+		return err
+	}
+
+	fmt.Printf("started %s:%s\n", s.cfg.Session, s.name)
 	return nil
+}
+
+// ensureSession creates the session a process runs in, delegating to the
+// script that owns session shape. It is idempotent, so calling it is cheap.
+func ensureSession(cfg *Config) error {
+	if sessionExists(cfg.Session) {
+		return nil
+	}
+	return bootstrapSession(cfg.Session, cfg.Cwd, cfg.project)
 }
