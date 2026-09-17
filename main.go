@@ -6,6 +6,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
@@ -28,6 +29,10 @@ examples:
 
 A process always runs in its project's session, whatever session you start it
 from, so its address is predictable: <project>:<process>.
+
+A process runs in a window like one you opened yourself, with the command
+typed into it, so a command that exits leaves a prompt and its own output
+behind rather than taking the window with it.
 
 Declarations live in one file per project, named after it:
   $PROC_CONFIG_DIR, else $ENV_DIR/proc, else ~/Developer/toolbox/private/env/proc
@@ -52,10 +57,17 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// A failure proc has already described in full says nothing more here.
+		if !errors.Is(err, errReported) {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(1)
 	}
 }
+
+// errReported marks a failure whose explanation is already on screen, so the
+// exit code can be honest without the reason being given twice.
+var errReported = errors.New("reported")
 
 type startArgs struct {
 	name    string
@@ -119,23 +131,43 @@ func runStart(argv []string) error {
 		return err
 	}
 
+	last := len(r.order) - 1
 	for i, s := range r.order {
 		// The process named on the command line is resolved last, and it is
 		// the only one an existing window refuses rather than satisfies.
-		named := i == len(r.order)-1
-		if err := create(s, named, args.force); err != nil {
+		named := i == last
+		err := create(s, named, args.force)
+		if err == nil {
+			continue
+		}
+		if named {
 			return err
 		}
+		// A requirement that failed is reported with what it cost, since the
+		// process asked for is the only reason any of this was started.
+		return fmt.Errorf("%w\n%s:%s was not started", err, r.order[last].cfg.Session, r.order[last].name)
 	}
 
 	return nil
 }
 
-// create makes a window for one step unless something already occupies the
-// name. What that means depends on how the step got here: a requirement is
-// satisfied by whatever is already there, while the process asked for is
-// refused unless -f says to replace it.
+// create makes a window for one step unless the process is already up. What
+// that means depends on how the step got here and on what it declares.
+//
+// A requirement is satisfied by a window with a command still running in it,
+// while the process asked for is refused unless -f says to replace it. Whatever
+// create does, it then says what became of it: `started` and `found` are
+// actions proc took, `running` and `exited` are states it went and looked up.
 func create(s step, named, force bool) error {
+	addr := s.cfg.Session + ":" + s.name
+
+	p, err := s.cfg.proc(s.name)
+	if err != nil {
+		return err
+	}
+
+	shell := shellName()
+
 	var existing []string
 
 	if sessionExists(s.cfg.Session) {
@@ -148,11 +180,17 @@ func create(s step, named, force bool) error {
 
 	if len(existing) > 0 {
 		if !named {
-			return nil
+			return found(addr, existing, shell)
 		}
 		if !force {
-			return fmt.Errorf("window %q already exists in session %q - use -f to replace it",
-				s.name, s.cfg.Session)
+			// A window outlives its command, so it carries the name whether
+			// anything is running in it or not. The refusal says which it is.
+			state := "already exists"
+			if _, live := liveWindow(existing, shell); !live {
+				state = "is there with nothing running in it"
+			}
+			return fmt.Errorf("window %q in session %q %s - use -f to replace it",
+				s.name, s.cfg.Session, state)
 		}
 		for _, id := range existing {
 			if err := killWindow(id); err != nil {
@@ -165,15 +203,34 @@ func create(s step, named, force bool) error {
 		return err
 	}
 
-	p, err := s.cfg.proc(s.name)
+	id, err := newWindow(s.cfg.Session, s.name, s.cfg.procCwd(p), p.Shell, p.Env)
 	if err != nil {
 		return err
 	}
-	if err := newWindow(s.cfg.Session, s.name, s.cfg.procCwd(p), p.Shell, p.Env); err != nil {
-		return err
-	}
+	fmt.Printf("started %s\n", addr)
 
-	fmt.Printf("started %s:%s\n", s.cfg.Session, s.name)
+	alive := running(id, shell)
+	report(alive, id)
+	if alive {
+		return nil
+	}
+	if named {
+		return errReported
+	}
+	return fmt.Errorf("requirement %s is not running", addr)
+}
+
+// found reports a requirement met by a window that was already there. The
+// window has to have a command running in it - a name on a window proves
+// nothing, and now that a window outlives its command it proves less than ever.
+func found(addr string, existing []string, shell string) error {
+	fmt.Printf("found %s\n", addr)
+
+	if _, ok := liveWindow(existing, shell); !ok {
+		report(false, existing[0])
+		return fmt.Errorf("requirement %s is not running", addr)
+	}
+	fmt.Println("  running")
 	return nil
 }
 

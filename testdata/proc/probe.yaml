@@ -1,0 +1,39 @@
+# A scratch project covering every case proc has to get right when a process
+# fails. Nothing here touches a cluster or a real declaration:
+#
+#   ENV_DIR=./testdata proc start <process> -p probe
+#
+# Everything lands in the proc_probe session. Clear it when done:
+#
+#   tmux kill-session -t proc_probe
+session: proc_probe
+cwd: "~"
+
+procs:
+  # The regression test for the whole thing. The window must still be there
+  # afterwards, at a prompt, with the error above it, and proc must say
+  # `exited` rather than reporting the start it performed.
+  instant-death:
+    shell: "sh -c 'echo \"boom: something went wrong\" >&2; exit 1'"
+
+  # Nothing broke: a normal long-running process, window alive, `running`.
+  survivor:
+    shell: "sleep 600"
+
+  # The ordinary requirement path - the requirement is started first, and is
+  # met the second time by the window already running it.
+  needs-survivor:
+    shell: "sleep 600"
+    requires: ["probe:survivor"]
+
+  # The requirement dies, so the chain must fail naming it and this must not
+  # start. Run it twice: once with no window there, once over the window the
+  # first run left sitting at a prompt, since a window carrying the name must
+  # satisfy nothing.
+  needs-corpse:
+    shell: "sleep 600"
+    requires: ["probe:instant-death"]
+
+  # Thirty lines then the real reason, all of which stays in the window.
+  chatty-death:
+    shell: "sh -c 'for i in $(seq 1 30); do echo line $i; done; echo \"fatal: the real reason\" >&2; exit 3'"

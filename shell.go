@@ -40,6 +40,7 @@ func withEnv(command string, env map[string]string) string {
 
 	return b.String()
 }
+
 func loginShell() string {
 	if s := os.Getenv("SHELL"); s != "" {
 		return s
