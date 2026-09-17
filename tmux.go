@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -76,49 +75,8 @@ func killWindow(id string) error {
 // process depend on where proc happened to be run from.
 func newWindow(session, name, cwd, command string, env map[string]string) error {
 	args := []string{"new-window", "-d", "-t", session + ":", "-n", name, "-c", cwd}
-	for k, v := range env {
-		args = append(args, "-e", k+"="+v)
-	}
-	args = append(args, loginShell()+" -l -c "+shellQuote(command))
+	args = append(args, loginShell()+" -l -c "+shellQuote(withEnv(command, env)))
 
 	_, err := tmux(args...)
 	return err
-}
-
-func loginShell() string {
-	if s := os.Getenv("SHELL"); s != "" {
-		return s
-	}
-	return "/bin/sh"
-}
-
-// shellQuote wraps a string so a shell reads it as one literal argument.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
-// bootstrapSession delegates session creation to the script that already owns
-// session shape. It is idempotent, so it is safe to call unconditionally.
-func bootstrapSession(session, cwd, layout string) error {
-	script := filepath.Join(scriptsDir(), "tmux", "bootstrap_session.sh")
-	if _, err := os.Stat(script); err != nil {
-		return fmt.Errorf("bootstrap script not found at %s", script)
-	}
-
-	cmd := exec.Command(script, session, cwd, layout)
-	var errb bytes.Buffer
-	cmd.Stderr = &errb
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("bootstrap_session.sh %s: %s", session, strings.TrimSpace(errb.String()))
-	}
-	return nil
-}
-
-func scriptsDir() string {
-	if d := os.Getenv("SCRIPTS_DIR"); d != "" {
-		return d
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Developer/toolbox/scripts")
 }
