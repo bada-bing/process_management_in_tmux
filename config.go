@@ -55,7 +55,8 @@ func loadConfig(project string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no config for project %q at %s", project, path)
+			return nil, fmt.Errorf("no config for project %q in %s\ndeclared: %s",
+				project, configDir(), strings.Join(projectNames(), ", "))
 		}
 		return nil, err
 	}
@@ -97,6 +98,17 @@ func (c *Config) proc(name string) (Proc, error) {
 		return Proc{}, fmt.Errorf("%s: process %q declares no shell command", c.path, name)
 	}
 	return p, nil
+}
+
+// projectNames lists the projects that have a config, so a project that has
+// none is answered with the ones that do.
+func projectNames() []string {
+	paths, _ := filepath.Glob(filepath.Join(configDir(), "*.yaml"))
+	names := make([]string, 0, len(paths))
+	for _, p := range paths {
+		names = append(names, strings.TrimSuffix(filepath.Base(p), ".yaml"))
+	}
+	return names
 }
 
 func (c *Config) procNames() []string {
