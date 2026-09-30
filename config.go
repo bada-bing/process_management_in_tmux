@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,7 +14,7 @@ import (
 )
 
 // Proc is one declared process. The shape mirrors the mprocs config it grew
-// out of, so an existing file ports over unchanged.
+// out of, so an existing file ports over once its mprocs-only keys are gone.
 type Proc struct {
 	Cwd   string            `yaml:"cwd"`
 	Shell string            `yaml:"shell"`
@@ -22,11 +25,9 @@ type Proc struct {
 }
 
 // Config is one project's declaration. A project is the unit everything is
-// keyed on: it names the config file, and by default the session too.
+// keyed on: it names the config file and the session its processes run in, so
+// an address <project>:<process> is also the tmux target.
 type Config struct {
-	// Session the processes run in. Defaults to the project name, which is
-	// what makes an address predictable from the project alone.
-	Session string `yaml:"session"`
 	// Cwd of the project. Defaults to the directory named after the project
 	// under SRC_PATH.
 	Cwd   string          `yaml:"cwd"`
@@ -59,17 +60,18 @@ func loadConfig(project string) (*Config, error) {
 		return nil, err
 	}
 
+	// A key the schema does not have is refused rather than dropped, so a
+	// leftover or mistyped key cannot silently change nothing.
 	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	c.project = project
 	c.path = path
 
-	if c.Session == "" {
-		c.Session = project
-	}
 	if c.Cwd == "" {
 		dir, err := resolveProjectDir(project)
 		if err != nil {

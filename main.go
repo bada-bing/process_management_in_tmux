@@ -145,7 +145,7 @@ func runStart(argv []string) error {
 		}
 		// A requirement that failed is reported with what it cost, since the
 		// process asked for is the only reason any of this was started.
-		return fmt.Errorf("%w\n%s:%s was not started", err, r.order[last].cfg.Session, r.order[last].name)
+		return fmt.Errorf("%w\n%s:%s was not started", err, r.order[last].cfg.project, r.order[last].name)
 	}
 
 	return nil
@@ -159,7 +159,7 @@ func runStart(argv []string) error {
 // create does, it then says what became of it: `started` and `found` are
 // actions proc took, `running` and `exited` are states it went and looked up.
 func create(s step, named, force bool) error {
-	addr := s.cfg.Session + ":" + s.name
+	addr := s.cfg.project + ":" + s.name
 
 	p, err := s.cfg.proc(s.name)
 	if err != nil {
@@ -170,8 +170,8 @@ func create(s step, named, force bool) error {
 
 	var existing []string
 
-	if sessionExists(s.cfg.Session) {
-		ids, err := findWindows(s.cfg.Session, s.name)
+	if sessionExists(s.cfg.project) {
+		ids, err := findWindows(s.cfg.project, s.name)
 		if err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func create(s step, named, force bool) error {
 				state = "is there with nothing running in it"
 			}
 			return fmt.Errorf("window %q in session %q %s - use -f to replace it",
-				s.name, s.cfg.Session, state)
+				s.name, s.cfg.project, state)
 		}
 		for _, id := range existing {
 			if err := killWindow(id); err != nil {
@@ -203,7 +203,7 @@ func create(s step, named, force bool) error {
 		return err
 	}
 
-	id, err := newWindow(s.cfg.Session, s.name, s.cfg.procCwd(p), p.Shell, p.Env)
+	id, err := newWindow(s.cfg.project, s.name, s.cfg.procCwd(p), p.Shell, p.Env)
 	if err != nil {
 		return err
 	}
@@ -237,8 +237,8 @@ func found(addr string, existing []string, shell string) error {
 // ensureSession creates the session a process runs in, delegating to the
 // script that owns session shape. It is idempotent, so calling it is cheap.
 func ensureSession(cfg *Config) error {
-	if sessionExists(cfg.Session) {
+	if sessionExists(cfg.project) {
 		return nil
 	}
-	return bootstrapSession(cfg.Session, cfg.Cwd, cfg.project)
+	return bootstrapSession(cfg.project, cfg.Cwd, cfg.project)
 }

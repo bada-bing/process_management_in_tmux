@@ -3,10 +3,9 @@
 #
 #   ENV_DIR=./testdata proc start <process> -p probe
 #
-# Everything lands in the proc_probe session. Clear it when done:
+# Everything lands in the probe session. Clear it when done:
 #
-#   tmux kill-session -t proc_probe
-session: proc_probe
+#   tmux kill-session -t probe
 cwd: "~"
 
 procs:
