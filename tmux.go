@@ -93,7 +93,7 @@ func newWindow(session, name, cwd, command string, env map[string]string) (strin
 		return "", err
 	}
 
-	if _, err := tmux("send-keys", "-t", id, "-l", "--", withEnv(command, env),
+	if _, err := tmux("send-keys", "-t", id, "-l", "--", withEnv(withState(command), env),
 		";", "send-keys", "-t", id, "Enter"); err != nil {
 		return "", err
 	}

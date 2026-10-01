@@ -41,6 +41,16 @@ func withEnv(command string, env map[string]string) string {
 	return b.String()
 }
 
+const stateOption = "@proc_state"
+
+// withState makes the shell record the command's state in the pane. The always
+// block runs even after Ctrl-C, and without -t tmux would write to the active
+// pane instead.
+func withState(command string) string {
+	set := `tmux set -p -t "$TMUX_PANE" ` + stateOption + " "
+	return set + "running; { " + command + " } always { " + set + "exited }"
+}
+
 func loginShell() string {
 	if s := os.Getenv("SHELL"); s != "" {
 		return s
