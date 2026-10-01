@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -77,10 +76,6 @@ func killWindow(id string) error {
 // Nothing has to be kept alive artificially, so remain-on-exit is not used and
 // no pane is ever dead.
 //
-// The shell is interactive, which is also what makes the state readable: it
-// has job control, so the command becomes the pane's foreground process group
-// and tmux names it in pane_current_command until it is gone.
-//
 // The keys are sent without waiting for the shell: tmux buffers them into the
 // pane until the shell reads them, so there is nothing to race. Both commands
 // go in one invocation, so nothing can land between the text and the Enter that
@@ -100,24 +95,13 @@ func newWindow(session, name, cwd, command string, env map[string]string) (strin
 	return id, nil
 }
 
-// paneCommand names the pane's foreground process. Against shellName it is the
-// whole of what proc needs: anything else means the command is running, and the
-// shell's own name means the pane is back at a prompt.
-func paneCommand(id string) string {
-	out, err := tmux("display-message", "-p", "-t", id, "#{pane_current_command}")
+// paneState reads @proc_state from the window's first pane, the process's own;
+// a pane split into it later comes after it. It is false when the window is gone.
+func paneState(window string) (string, bool) {
+	out, err := tmux("list-panes", "-t", window, "-F", "#{"+stateOption+"}")
 	if err != nil {
-		return ""
+		return "", false
 	}
-	return out
-}
-
-// shellName is what a pane reports while it is sitting at a prompt. It is read
-// from tmux rather than assumed, since default-shell is what tmux actually
-// starts when a window is given no command.
-func shellName() string {
-	shell, err := tmux("show-options", "-gv", "default-shell")
-	if err != nil || shell == "" {
-		shell = loginShell()
-	}
-	return filepath.Base(shell)
+	first, _, _ := strings.Cut(out, "\n")
+	return first, true
 }

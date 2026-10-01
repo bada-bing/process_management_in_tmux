@@ -166,8 +166,6 @@ func create(s step, named, force bool) error {
 		return err
 	}
 
-	shell := shellName()
-
 	var existing []string
 
 	if sessionExists(s.cfg.project) {
@@ -180,13 +178,13 @@ func create(s step, named, force bool) error {
 
 	if len(existing) > 0 {
 		if !named {
-			return found(addr, existing, shell)
+			return found(addr, existing)
 		}
 		if !force {
 			// A window outlives its command, so it carries the name whether
 			// anything is running in it or not. The refusal says which it is.
 			state := "already exists"
-			if _, live := liveWindow(existing, shell); !live {
+			if _, live := liveWindow(existing); !live {
 				state = "is there with nothing running in it"
 			}
 			return fmt.Errorf("window %q in session %q %s - use -f to replace it",
@@ -209,7 +207,7 @@ func create(s step, named, force bool) error {
 	}
 	fmt.Printf("started %s\n", addr)
 
-	alive := running(id, shell)
+	alive := running(id)
 	report(alive, id)
 	if alive {
 		return nil
@@ -223,10 +221,10 @@ func create(s step, named, force bool) error {
 // found reports a requirement met by a window that was already there. The
 // window has to have a command running in it - a name on a window proves
 // nothing, and now that a window outlives its command it proves less than ever.
-func found(addr string, existing []string, shell string) error {
+func found(addr string, existing []string) error {
 	fmt.Printf("found %s\n", addr)
 
-	if _, ok := liveWindow(existing, shell); !ok {
+	if _, ok := liveWindow(existing); !ok {
 		report(false, existing[0])
 		return fmt.Errorf("requirement %s is not running", addr)
 	}

@@ -56,25 +56,20 @@ a command sent, and a reader takes it to mean the process is running.
 
 ### The signal
 
-An interactive shell has job control, so the command gets its own process group
-and becomes the pane's foreground process. tmux names it:
-
-    pane_current_command != the shell    something is running
-    pane_current_command == the shell    it is back at a prompt
-
-This is why the shell has to be interactive. Under `zsh -c` there is no job
-control, the shell never becomes a parent, and the same format answers nothing.
+The typed line records the command's state in the `@proc_state` option of the
+window's first pane — `running` before the command starts, `exited` from an
+`always` block however it ends. `proc` reads that option and nothing else: the
+foreground command is not a signal, since whatever shell startup runs is
+briefly in the foreground too.
 
 ### Why there is a clock at all
 
 Neither number has anything to do with how long an app takes to be *useful* — a
-dev server that needs forty seconds to serve is the pane's foreground process
-throughout, from its first millisecond.
+dev server that needs forty seconds to serve reads `running` throughout, from
+its first millisecond.
 
-`startBudget` (3s) is how long `proc` waits to *see* the command reach the
-foreground, and it covers the shell's own startup — about 325ms here — because
-until the shell has run the command, a pane at a prompt looks exactly like a
-pane whose command has finished.
+`startBudget` (3s) is how long `proc` waits for `running`, and it covers the
+shell's own startup — about 325ms here — during which the state is still unset.
 
 `watchWindow` (750ms) is how long a command is watched once it *is* running, and
 it is what catches a failure at startup: a missing binary, a refused credential,
@@ -94,7 +89,7 @@ an address —
     tmux capture-pane -p -J -S -200 -t proc_probe:instant-death
 
 — so anything that can read a pane, me or an agent, reads the same bytes. `proc`
-reads no pane at all; `#{pane_current_command}` is its only question.
+reads no output at all; `@proc_state` is its only question.
 
 ## Two passes
 

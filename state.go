@@ -5,48 +5,34 @@ import (
 	"time"
 )
 
-// startBudget is how long proc waits to see a typed command reach the pane's
-// foreground. It covers the shell starting up too - about 325ms here, since the
-// window is made and the keys sent in the same breath - because until the shell
-// has run the command, a pane at a prompt looks exactly like a pane whose
-// command has finished. Three seconds leaves room for a cold start.
+// startBudget is how long proc waits for the typed line to record `running`.
+// It covers the shell starting up, about 325ms here; three seconds leaves room
+// for a cold start.
 const startBudget = 3 * time.Second
 
-// watchWindow is how long a command is watched once it is running. It is a
-// compromise, not supervision: everything that fails at startup - a missing
-// binary, a refused credential, a port already held - is gone well inside it.
-// A process that dies later slips through, and its window is still there to be
-// read whenever that is noticed.
+// watchWindow is how long a running command is watched for `exited`. It is a
+// compromise, not supervision: a failure at startup - a missing binary, a
+// refused credential, a port already held - falls inside it, a later one does
+// not, and the window is there to be read whenever that is noticed.
 const watchWindow = 750 * time.Millisecond
 
 const poll = 25 * time.Millisecond
 
-// running answers whether the command proc typed is still the pane's
-// foreground process.
-//
-// It returns as soon as a command that started has finished, so a failure is
-// reported the moment it happens. A pane that never leaves the shell is the
-// ambiguous case - a command too quick to catch, or one that never ran - and
-// proc deliberately does not distinguish them: the question is whether
-// anything is running, and the answer to that is no either way.
-func running(id, shell string) bool {
+// running waits for the command to record `running`, then watches it for
+// `exited`, and answers whether it is still running at the end. A window that
+// is gone - a command such as a bare exit takes it with it - is not running.
+func running(id string) bool {
 	started := false
 	deadline := time.Now().Add(startBudget)
 
 	for {
-		switch cur := paneCommand(id); {
-		case cur == "":
-			// No pane to ask. A command that ends the shell itself, such as a
-			// bare exit, takes the window with it exactly as it would if you
-			// had typed it.
+		state, ok := paneState(id)
+		switch {
+		case !ok, state == "exited":
 			return false
-		case cur != shell:
-			if !started {
-				started = true
-				deadline = time.Now().Add(watchWindow)
-			}
-		case started:
-			return false
+		case state == "running" && !started:
+			started = true
+			deadline = time.Now().Add(watchWindow)
 		}
 
 		if time.Now().After(deadline) {
@@ -56,12 +42,11 @@ func running(id, shell string) bool {
 	}
 }
 
-// liveWindow picks the first of several windows carrying a name that has a
-// command running in it. A window outlives its command now, so the name alone
-// answers nothing.
-func liveWindow(ids []string, shell string) (string, bool) {
+// liveWindow picks the first of several windows carrying a name whose command
+// is running.
+func liveWindow(ids []string) (string, bool) {
 	for _, id := range ids {
-		if cur := paneCommand(id); cur != "" && cur != shell {
+		if state, _ := paneState(id); state == "running" {
 			return id, true
 		}
 	}
@@ -82,7 +67,7 @@ func report(alive bool, id string) {
 		fmt.Println("  running")
 		return
 	}
-	if paneCommand(id) == "" {
+	if _, ok := paneState(id); !ok {
 		fmt.Println("  exited, and ended the window's shell with it")
 		return
 	}

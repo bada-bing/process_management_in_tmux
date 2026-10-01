@@ -51,13 +51,6 @@ func withState(command string) string {
 	return set + "running; { " + command + " } always { " + set + "exited }"
 }
 
-func loginShell() string {
-	if s := os.Getenv("SHELL"); s != "" {
-		return s
-	}
-	return "/bin/sh"
-}
-
 // shellQuote wraps a string so a shell reads it as one literal argument.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
