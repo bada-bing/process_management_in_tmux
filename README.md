@@ -43,19 +43,23 @@ Two vocabularies, deliberately kept apart. `started` and `found` are actions
 `proc` took; the indented line under them is a state it went and looked up.
 
     started proc_probe:survivor          proc opened a window and typed the command
-      running                            …and the command still holds the pane
+      running                            …and the command has not exited
 
     started proc_probe:instant-death
-      exited                             …and it does not
+      exited                             …and the command has
 
     started proc_probe:slow-shell
       not started yet - …                the shell has not reached the command
 
-    found shared_processes:zookeeper     proc created nothing; it was already there
-      ready (port 2181)                  …because the port answers
+    found shared:zookeeper               proc created nothing; it was already there
+      running
 
 `started` alone was true and useless: it reports that a window was created and
 a command sent, and a reader takes it to mean the process is running.
+
+`running` means the command has not exited, not that it is ready. A
+port-forward that never connects reads `running` all the same; whether a
+process is serving is not answered here.
 
 ### The signal
 
