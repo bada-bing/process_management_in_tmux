@@ -167,8 +167,8 @@ on; the shell being a login shell is what repairs that.
 
 The last entry is always the process named on the command line, which is how
 the create pass knows to treat it differently: a requirement is satisfied by
-a window with a command running in it, while the process you asked for is
-refused unless `-f` says to replace it.
+a window with a command running in it, and so is the process you asked for,
+unless `-f` says to restart it.
 
 A window whose command has `exited` is replaced and started again, whether its
 process was named or required. It carries the name, but the name was never the

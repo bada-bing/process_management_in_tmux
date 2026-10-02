@@ -18,8 +18,7 @@ usage:
 
   <process>  a process declared in the project's config
   -p         the project; defaults to the name of the session you are in
-  -f         replace the window if one already carries that name, killing
-             whatever is running in it
+  -f         restart the process if it is running, replacing its window
 
 examples:
   proc start remote                  the project is the current session
@@ -177,15 +176,11 @@ func create(s step, named, force bool) error {
 
 	switch {
 	case len(existing) == 0, state == "exited":
-	case !named:
+	case !named, state == "running" && !force:
 		return found(addr, state)
 	case !force:
-		what := "already exists"
-		if state != "running" {
-			what = "is there with nothing running in it"
-		}
-		return fmt.Errorf("window %q in session %q %s - use -f to replace it",
-			s.name, s.cfg.project, what)
+		return fmt.Errorf("window %q in session %q is there with nothing running in it - use -f to replace it",
+			s.name, s.cfg.project)
 	}
 
 	for _, id := range existing {
@@ -215,8 +210,8 @@ func create(s step, named, force bool) error {
 	return fmt.Errorf("requirement %s is not running", addr)
 }
 
-// found reports a requirement met by a window that was already there, which
-// has to have a command running in it.
+// found reports a process met by a window that was already there, which has to
+// have a command running in it.
 func found(addr, state string) error {
 	fmt.Printf("found %s\n", addr)
 
