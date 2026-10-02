@@ -48,6 +48,9 @@ Two vocabularies, deliberately kept apart. `started` and `found` are actions
     started proc_probe:instant-death
       exited                             …and it does not
 
+    started proc_probe:slow-shell
+      not started yet - …                the shell has not reached the command
+
     found shared_processes:zookeeper     proc created nothing; it was already there
       ready (port 2181)                  …because the port answers
 

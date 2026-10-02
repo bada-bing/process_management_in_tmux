@@ -18,25 +18,25 @@ const watchWindow = 750 * time.Millisecond
 
 const poll = 25 * time.Millisecond
 
-// running waits for the command to record `running`, then watches it for
-// `exited`, and answers whether it is still running at the end. A window that
-// is gone - a command such as a bare exit takes it with it - is not running.
-func running(id string) bool {
+// watch waits for the command to record `running`, then watches it for
+// `exited`, and returns the state it ends on: empty if the shell never reached
+// the command. It is false when the window is gone, as a bare exit takes it.
+func watch(id string) (string, bool) {
 	started := false
 	deadline := time.Now().Add(startBudget)
 
 	for {
 		state, ok := paneState(id)
-		switch {
-		case !ok, state == "exited":
-			return false
-		case state == "running" && !started:
+		if !ok || state == "exited" {
+			return state, ok
+		}
+		if state == "running" && !started {
 			started = true
 			deadline = time.Now().Add(watchWindow)
 		}
 
 		if time.Now().After(deadline) {
-			return started
+			return state, true
 		}
 		time.Sleep(poll)
 	}
@@ -70,14 +70,13 @@ func windowsState(ids []string) string {
 // how anything - me or an agent - reads a pane. proc says which of them to read
 // by naming the process; saying it twice is what made the report worth
 // distrusting.
-func report(alive bool, id string) {
-	if alive {
-		fmt.Println("  running")
-		return
-	}
-	if _, ok := paneState(id); !ok {
+func report(state string, ok bool) {
+	switch {
+	case !ok:
 		fmt.Println("  exited, and ended the window's shell with it")
-		return
+	case state == "":
+		fmt.Printf("  not started yet - the window's shell has not reached the command after %s\n", startBudget)
+	default:
+		fmt.Println("  " + state)
 	}
-	fmt.Println("  exited")
 }

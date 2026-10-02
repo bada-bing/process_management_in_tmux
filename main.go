@@ -208,9 +208,9 @@ func create(s step, named, force bool) error {
 	}
 	fmt.Printf("started %s\n", addr)
 
-	alive := running(id)
-	report(alive, id)
-	if alive {
+	state, ok := watch(id)
+	report(state, ok)
+	if state == "running" {
 		return nil
 	}
 	if named {
