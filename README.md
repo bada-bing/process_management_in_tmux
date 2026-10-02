@@ -167,9 +167,9 @@ on; the shell being a login shell is what repairs that.
 
 The last entry is always the process named on the command line, which is how
 the create pass knows to treat it differently: a requirement is satisfied by
-what is already there, while the process you asked for is refused unless `-f`
-says to replace it.
+a window with a command running in it, while the process you asked for is
+refused unless `-f` says to replace it.
 
-What satisfies a requirement is a window with a command running in it. A window
-sitting at a prompt satisfies nothing: it carries the name, and the name was
-never the question — less so than ever now that a window outlives its command.
+A window whose command has `exited` is replaced and started again, whether its
+process was named or required. It carries the name, but the name was never the
+question.

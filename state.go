@@ -42,15 +42,23 @@ func running(id string) bool {
 	}
 }
 
-// liveWindow picks the first of several windows carrying a name whose command
-// is running.
-func liveWindow(ids []string) (string, bool) {
+// windowsState sums up the windows carrying a name: `running` if any of them
+// is, `exited` if all of them are, and empty otherwise.
+func windowsState(ids []string) string {
+	exited := len(ids) > 0
 	for _, id := range ids {
-		if state, _ := paneState(id); state == "running" {
-			return id, true
+		switch state, _ := paneState(id); state {
+		case "running":
+			return "running"
+		case "exited":
+		default:
+			exited = false
 		}
 	}
-	return "", false
+	if exited {
+		return "exited"
+	}
+	return ""
 }
 
 // report prints what proc found, indented under the line saying what proc did.

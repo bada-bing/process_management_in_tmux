@@ -151,13 +151,10 @@ func runStart(argv []string) error {
 	return nil
 }
 
-// create makes a window for one step unless the process is already up. What
-// that means depends on how the step got here and on what it declares.
-//
-// A requirement is satisfied by a window with a command still running in it,
-// while the process asked for is refused unless -f says to replace it. Whatever
-// create does, it then says what became of it: `started` and `found` are
-// actions proc took, `running` and `exited` are states it went and looked up.
+// create makes a window for one step unless the process is already up. A
+// window whose command has exited is replaced, whether the process was named
+// or required. Whatever create does, it then says what became of it: `started`
+// and `found` are actions proc took, `running` and `exited` are states it read.
 func create(s step, named, force bool) error {
 	addr := s.cfg.project + ":" + s.name
 
@@ -176,24 +173,24 @@ func create(s step, named, force bool) error {
 		existing = ids
 	}
 
-	if len(existing) > 0 {
-		if !named {
-			return found(addr, existing)
+	state := windowsState(existing)
+
+	switch {
+	case len(existing) == 0, state == "exited":
+	case !named:
+		return found(addr, state)
+	case !force:
+		what := "already exists"
+		if state != "running" {
+			what = "is there with nothing running in it"
 		}
-		if !force {
-			// A window outlives its command, so it carries the name whether
-			// anything is running in it or not. The refusal says which it is.
-			state := "already exists"
-			if _, live := liveWindow(existing); !live {
-				state = "is there with nothing running in it"
-			}
-			return fmt.Errorf("window %q in session %q %s - use -f to replace it",
-				s.name, s.cfg.project, state)
-		}
-		for _, id := range existing {
-			if err := killWindow(id); err != nil {
-				return err
-			}
+		return fmt.Errorf("window %q in session %q %s - use -f to replace it",
+			s.name, s.cfg.project, what)
+	}
+
+	for _, id := range existing {
+		if err := killWindow(id); err != nil {
+			return err
 		}
 	}
 
@@ -218,14 +215,12 @@ func create(s step, named, force bool) error {
 	return fmt.Errorf("requirement %s is not running", addr)
 }
 
-// found reports a requirement met by a window that was already there. The
-// window has to have a command running in it - a name on a window proves
-// nothing, and now that a window outlives its command it proves less than ever.
-func found(addr string, existing []string) error {
+// found reports a requirement met by a window that was already there, which
+// has to have a command running in it.
+func found(addr, state string) error {
 	fmt.Printf("found %s\n", addr)
 
-	if _, ok := liveWindow(existing); !ok {
-		report(false, existing[0])
+	if state != "running" {
 		return fmt.Errorf("requirement %s is not running", addr)
 	}
 	fmt.Println("  running")
