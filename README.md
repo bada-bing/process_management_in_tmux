@@ -173,3 +173,7 @@ unless `-f` says to restart it.
 A window whose command has `exited` is replaced and started again, whether its
 process was named or required. It carries the name, but the name was never the
 question.
+
+A window carrying the name with no `@proc_state` at all is one `proc` did not
+open, so `proc` cannot say what runs in it. It is refused rather than kept or
+killed, and `-f` replaces it when it is the process you asked for.

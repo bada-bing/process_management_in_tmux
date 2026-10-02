@@ -176,11 +176,20 @@ func create(s step, named, force bool) error {
 
 	switch {
 	case len(existing) == 0, state == "exited":
-	case !named, state == "running" && !force:
-		return found(addr, state)
-	case !force:
-		return fmt.Errorf("window %q in session %q is there with nothing running in it - use -f to replace it",
+	case state == "":
+		// proc cannot say what runs in a window it did not open, so it neither
+		// keeps the window nor kills it unless told to.
+		if named && force {
+			break
+		}
+		msg := fmt.Sprintf("a window named %s is already open in %s, but proc did not open it",
 			s.name, s.cfg.project)
+		if named {
+			return fmt.Errorf("%s - use -f to replace it", msg)
+		}
+		return fmt.Errorf("%s - replace it with: proc start %s -p %s -f", msg, s.name, s.cfg.project)
+	case !named, !force:
+		return found(addr)
 	}
 
 	for _, id := range existing {
@@ -210,14 +219,9 @@ func create(s step, named, force bool) error {
 	return fmt.Errorf("requirement %s is not running", addr)
 }
 
-// found reports a process met by a window that was already there, which has to
-// have a command running in it.
-func found(addr, state string) error {
+// found reports a process met by a window already running it.
+func found(addr string) error {
 	fmt.Printf("found %s\n", addr)
-
-	if state != "running" {
-		return fmt.Errorf("requirement %s is not running", addr)
-	}
 	fmt.Println("  running")
 	return nil
 }
