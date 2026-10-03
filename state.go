@@ -70,13 +70,17 @@ func windowsState(ids []string) string {
 // how anything - me or an agent - reads a pane. proc says which of them to read
 // by naming the process; saying it twice is what made the report worth
 // distrusting.
-func report(state string, ok bool) {
+func report(addr, state string, ok bool) {
 	switch {
 	case !ok:
 		fmt.Println("  exited, and ended the window's shell with it")
+		return
 	case state == "":
 		fmt.Printf("  not started yet - the window's shell has not reached the command after %s\n", startBudget)
 	default:
 		fmt.Println("  " + state)
+	}
+	if state != "running" {
+		fmt.Printf("read why: tmux capture-pane -p -J -S -50 -t %s\n", addr)
 	}
 }
