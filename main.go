@@ -133,7 +133,7 @@ func runStart(argv []string) error {
 	last := len(r.order) - 1
 	for i, s := range r.order {
 		// The process named on the command line is resolved last, and it is
-		// the only one an existing window refuses rather than satisfies.
+		// the only one -f restarts.
 		named := i == last
 		err := create(s, named, args.force)
 		if err == nil {
@@ -144,7 +144,12 @@ func runStart(argv []string) error {
 		}
 		// A requirement that failed is reported with what it cost, since the
 		// process asked for is the only reason any of this was started.
-		return fmt.Errorf("%w\n%s:%s was not started", err, r.order[last].cfg.project, r.order[last].name)
+		target := r.order[last].cfg.project + ":" + r.order[last].name
+		var down requirementDown
+		if errors.As(err, &down) {
+			return fmt.Errorf("%s was not started: its requirement %s %s", target, down.addr, down.why)
+		}
+		return fmt.Errorf("%w\n%s was not started", err, target)
 	}
 
 	return nil
@@ -189,7 +194,11 @@ func create(s step, named, force bool) error {
 		}
 		return fmt.Errorf("%s - replace it with: proc start %s -p %s -f", msg, s.name, s.cfg.project)
 	case !named, !force:
-		return found(addr)
+		found(addr)
+		if named {
+			fmt.Printf("%s is already running - use -f to restart it\n", addr)
+		}
+		return nil
 	}
 
 	for _, id := range existing {
@@ -216,14 +225,23 @@ func create(s step, named, force bool) error {
 	if named {
 		return errReported
 	}
-	return fmt.Errorf("requirement %s is not running", addr)
+	why := "exited"
+	if ok && state == "" {
+		why = "has not started yet"
+	}
+	return requirementDown{addr, why}
 }
 
+// requirementDown is a requirement that was started but is not running, which
+// the start reports in the words of the process that needed it.
+type requirementDown struct{ addr, why string }
+
+func (d requirementDown) Error() string { return d.addr + " " + d.why }
+
 // found reports a process met by a window already running it.
-func found(addr string) error {
+func found(addr string) {
 	fmt.Printf("found %s\n", addr)
 	fmt.Println("  running")
-	return nil
 }
 
 // ensureSession creates the session a process runs in, delegating to the
