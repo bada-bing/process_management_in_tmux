@@ -14,7 +14,7 @@ once, though, at what became of the command it typed.
 tmux is given no command, so the pane runs `default-shell` — a login,
 interactive shell — and the command goes in as keys:
 
-    tmux new-window -d -P -F '#{window_id}' -t shared_processes: -n zookeeper -c /Users/miki \
+    tmux new-window -d -P -F '#{window_id}' -t shared: -n zookeeper -c /Users/miki \
       ";" send-keys -t @31 -l -- "kubectl port-forward -n zookeeper svc/zookeeper 2181:2181" \
       ";" send-keys -t @31 Enter
 
@@ -152,7 +152,7 @@ finishes first and `order` comes out requirements before dependents.
 `proc start host-bff -p shop`, where `host-bff` requires
 `shared:zookeeper`:
 
-    order[0]  session  shared_processes
+    order[0]  session  shared
               name     zookeeper
               cwd      /Users/miki
               shell    kubectl port-forward -n zookeeper svc/zookeeper 2181:2181
@@ -165,7 +165,7 @@ finishes first and `order` comes out requirements before dependents.
 Directories are already absolute, so the create pass never reads config again.
 `order[0]` becomes:
 
-    tmux new-window -d -P -F '#{window_id}' -t shared_processes: -n zookeeper \
+    tmux new-window -d -P -F '#{window_id}' -t shared: -n zookeeper \
       -c /Users/miki
 
 …followed by the command sent as keys. The window inherits only the tmux
