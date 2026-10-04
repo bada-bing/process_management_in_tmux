@@ -42,17 +42,25 @@ interpreted as one.
 Two vocabularies, deliberately kept apart. `started` and `found` are actions
 `proc` took; the indented line under them is a state it went and looked up.
 
-    started proc_probe:survivor          proc opened a window and typed the command
+    started probe:survivor               proc opened a window and typed the command
       running                            …and the command has not exited
 
-    started proc_probe:instant-death
+    started probe:instant-death
       exited                             …and the command has
+    read why: tmux capture-pane -p -J -S -50 -t probe:instant-death
 
-    started proc_probe:slow-shell
+    started probe:slow-shell
       not started yet - …                the shell has not reached the command
 
     found shared:zookeeper               proc created nothing; it was already there
       running
+
+A line under the report says what follows from it: the command that reads a
+failed process's window, a process asked for that is already running, or a
+requirement that stopped the start:
+
+    probe:survivor is already running - use -f to restart it
+    probe:needs-corpse was not started: its requirement probe:instant-death exited
 
 `started` alone was true and useless: it reports that a window was created and
 a command sent, and a reader takes it to mean the process is running.
@@ -84,16 +92,13 @@ a port already held. A process that dies later is reported `running` and `proc`
 is wrong; it has stopped watching by then. That is the price of supervising
 nothing, and it is why the window staying put matters.
 
-Whether a process is *serving* rather than merely alive is a different question,
-and nothing here answers it.
-
 ### Where the output is
 
 In the window, which is the one place it is complete and the one place it
 stays. `proc` does not repeat it: the report names the process, and naming it is
-an address —
+an address, which a failure spells out as the command that reads it —
 
-    tmux capture-pane -p -J -S -200 -t proc_probe:instant-death
+    tmux capture-pane -p -J -S -200 -t probe:instant-death
 
 — so anything that can read a pane, me or an agent, reads the same bytes. `proc`
 reads no output at all; `@proc_state` is its only question.
