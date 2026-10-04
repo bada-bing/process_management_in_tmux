@@ -154,7 +154,7 @@ finishes first and `order` comes out requirements before dependents.
 
 ## What order holds
 
-`proc start host-bff -p shop`, where `host-bff` requires
+`proc start dev:frontend -p project_1`, where `dev:frontend` requires
 `shared:zookeeper`:
 
     order[0]  session  shared
@@ -162,9 +162,9 @@ finishes first and `order` comes out requirements before dependents.
               cwd      /Users/miki
               shell    kubectl port-forward -n zookeeper svc/zookeeper 2181:2181
 
-    order[1]  session  shop
-              name     host-bff
-              cwd      .../shop/packages/host-bff
+    order[1]  session  project_1
+              name     dev:frontend
+              cwd      .../project_1/packages/frontend
               shell    pnpm dev
 
 Directories are already absolute, so the create pass never reads config again.

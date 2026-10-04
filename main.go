@@ -21,9 +21,9 @@ usage:
   -f         restart the process if it is running, replacing its window
 
 examples:
-  proc start remote                  the project is the current session
-  proc start remote -f               bounce it
-  proc start remote -p shop
+  proc start dev:frontend              the project is the current session
+  proc start dev:frontend -f           restart it
+  proc start dev:frontend -p project_1
   proc start zookeeper -p shared
 
 A process always runs in its project's session, whatever session you start it
@@ -74,8 +74,8 @@ type startArgs struct {
 	force   bool
 }
 
-// parseStart accepts flags in any position, so `start remote -f` reads the
-// same as `start -f remote`.
+// parseStart accepts flags in any position, so `start dev:frontend -f` reads
+// the same as `start -f dev:frontend`.
 func parseStart(argv []string) (startArgs, error) {
 	var a startArgs
 
